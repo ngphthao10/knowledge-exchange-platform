@@ -1,0 +1,61 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="900" fill="#F0EDF8"/>
+
+  <!-- Soft ambient blobs -->
+  <circle cx="120" cy="120" r="260" fill="#E4DCF5" opacity="0.55"/>
+  <circle cx="1320" cy="780" r="220" fill="#E4DCF5" opacity="0.55"/>
+  <circle cx="1380" cy="100" r="160" fill="#DDD4F5" opacity="0.35"/>
+  <circle cx="60" cy="820" r="180" fill="#DDD4F5" opacity="0.35"/>
+  <circle cx="720" cy="450" r="320" fill="#EAE4F8" opacity="0.3"/>
+
+  <!-- Subtle dot grid -->
+  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    <circle cx="20" cy="20" r="1.2" fill="#C4B5E8" opacity="0.5"/>
+  </pattern>
+  <rect width="1440" height="900" fill="url(#dots)"/>
+
+  <!-- Decorative large ghost rings top-right -->
+  <circle cx="1300" cy="160" r="110" fill="none" stroke="#C4B5E8" stroke-width="1" opacity="0.4"/>
+  <circle cx="1300" cy="160" r="75" fill="none" stroke="#C4B5E8" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Decorative large ghost rings bottom-left -->
+  <circle cx="140" cy="760" r="90" fill="none" stroke="#C4B5E8" stroke-width="1" opacity="0.4"/>
+  <circle cx="140" cy="760" r="58" fill="none" stroke="#C4B5E8" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Center large faint logo mark watermark -->
+  <g transform="translate(720,450)" opacity="0.06">
+    <circle cx="-95" cy="0" r="130" fill="#2D1B69"/>
+    <circle cx="95" cy="0" r="130" fill="#8B5CF6"/>
+    <circle cx="-95" cy="0" r="70" fill="#F0EDF8"/>
+    <circle cx="95" cy="0" r="70" fill="#2D1B69"/>
+  </g>
+
+  <!-- Small accent logo marks scattered -->
+  <g transform="translate(200,680)" opacity="0.12">
+    <circle cx="-18" cy="0" r="24" fill="#2D1B69"/>
+    <circle cx="18" cy="0" r="24" fill="#8B5CF6"/>
+    <circle cx="-18" cy="0" r="13" fill="#F0EDF8"/>
+    <circle cx="18" cy="0" r="13" fill="#2D1B69"/>
+  </g>
+
+  <g transform="translate(1240,240)" opacity="0.12">
+    <circle cx="-18" cy="0" r="24" fill="#2D1B69"/>
+    <circle cx="18" cy="0" r="24" fill="#8B5CF6"/>
+    <circle cx="-18" cy="0" r="13" fill="#F0EDF8"/>
+    <circle cx="18" cy="0" r="13" fill="#2D1B69"/>
+  </g>
+
+  <g transform="translate(1100,700)" opacity="0.09">
+    <circle cx="-14" cy="0" r="18" fill="#2D1B69"/>
+    <circle cx="14" cy="0" r="18" fill="#8B5CF6"/>
+    <circle cx="-14" cy="0" r="10" fill="#F0EDF8"/>
+    <circle cx="14" cy="0" r="10" fill="#2D1B69"/>
+  </g>
+
+  <g transform="translate(340,200)" opacity="0.09">
+    <circle cx="-14" cy="0" r="18" fill="#2D1B69"/>
+    <circle cx="14" cy="0" r="18" fill="#8B5CF6"/>
+    <circle cx="-14" cy="0" r="10" fill="#F0EDF8"/>
+    <circle cx="14" cy="0" r="10" fill="#2D1B69"/>
+  </g>
+</svg>
