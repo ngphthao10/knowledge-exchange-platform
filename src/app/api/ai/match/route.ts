@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { generateMatchExplanation, computeSkillOverlapScore } from '@/lib/ai/matching'
+import { computeChemistryScore } from '@/lib/ai/chemistry'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 10 match requests per user per hour
+  if (!checkRateLimit(`match:${user.id}`, 10, 60 * 60_000)) {
+    return NextResponse.json({ error: 'Too many requests. Please wait before finding more matches.' }, { status: 429 })
+  }
 
   // Load current user profile
   const { data: currentProfile } = await supabase
@@ -40,11 +47,22 @@ export async function POST(req: NextRequest) {
       reason = `Compatibility score: ${Math.round(score * 100)}%`
     }
 
+    const { score: chemistryScore, explanation: chemistryExplanation } =
+      await computeChemistryScore(currentProfile, targetProfile)
+
     const admin = createAdminClient()
     const { data: match, error } = await admin
       .from('matches')
       .upsert(
-        { user_a_id: user.id, user_b_id: targetProfile.user_id, match_score: score, match_reason: reason, status: 'pending' },
+        {
+          user_a_id: user.id,
+          user_b_id: targetProfile.user_id,
+          match_score: score,
+          match_reason: reason,
+          chemistry_score: chemistryScore,
+          chemistry_explanation: chemistryExplanation,
+          status: 'pending',
+        },
         { onConflict: 'user_a_id,user_b_id', ignoreDuplicates: false }
       )
       .select()
@@ -106,6 +124,9 @@ export async function POST(req: NextRequest) {
         reason = `Compatibility score: ${Math.round(score * 100)}%`
       }
 
+      const { score: chemistryScore, explanation: chemistryExplanation } =
+        await computeChemistryScore(currentProfile, candidate)
+
       // Use admin client to bypass RLS for insert
       const { data: match, error: upsertError } = await admin
         .from('matches')
@@ -115,6 +136,8 @@ export async function POST(req: NextRequest) {
             user_b_id: candidate.user_id,
             match_score: score,
             match_reason: reason,
+            chemistry_score: chemistryScore,
+            chemistry_explanation: chemistryExplanation,
             status: 'pending',
           },
           { onConflict: 'user_a_id,user_b_id', ignoreDuplicates: false }
@@ -140,6 +163,11 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { matchId, status } = await req.json()
+
+  const VALID_STATUSES = ['accepted', 'declined', 'pending'] as const
+  if (!VALID_STATUSES.includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+  }
 
   const { data: match, error } = await supabase
     .from('matches')

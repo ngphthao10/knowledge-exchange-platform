@@ -27,6 +27,8 @@ export interface Match {
   user_b_id: string
   match_score: number
   match_reason: string           // AI-generated explanation
+  chemistry_score?: number       // AI learning style compatibility (0–1)
+  chemistry_explanation?: string // AI-generated chemistry explanation
   status: 'pending' | 'accepted' | 'declined'
   created_at: string
   profile_a?: Profile
@@ -71,4 +73,29 @@ export interface Message {
 export interface AssessmentMessage {
   role: 'user' | 'model'
   content: string
+}
+
+export interface SkillFuture {
+  id: string
+  user_id: string
+  skill_name: string
+  current_level: string
+  target_level: string
+  estimated_weeks: number
+  ai_verified: boolean
+  created_at: string
+}
+
+export interface FuturePledge {
+  id: string
+  pledger_id: string
+  future_owner_id: string
+  pledger_skill: string
+  future_skill: string
+  sessions_pledged: number
+  sessions_delivered: number
+  status: 'active' | 'completed' | 'cancelled'
+  created_at: string
+  pledger_profile?: Profile
+  future_owner_profile?: Profile
 }

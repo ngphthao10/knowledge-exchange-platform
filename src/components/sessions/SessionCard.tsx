@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { Video, Clock, GraduationCap, BookOpen, CheckCircle, Star } from 'lucide-react'
+import { Video, Clock, GraduationCap, BookOpen, CheckCircle, Star, BrainCircuit } from 'lucide-react'
+import Link from 'next/link'
 import { Session } from '@/lib/types'
 
 interface SessionCardProps {
@@ -84,12 +85,20 @@ export default function SessionCard({ session, currentUserId, onUpdate }: Sessio
         )}
 
         {/* Actions row */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <a href={session.meet_link} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-violet-600 hover:text-violet-700 hover:border-violet-300 transition-all"
             style={{ borderColor: 'var(--border-2)', background: 'var(--surface-2)' }}>
             <Video size={11} /> Meet
           </a>
+
+          {session.status === 'scheduled' && (
+            <Link href={`/sessions/${session.id}/live`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
+              style={{ borderColor: '#c4b5fd', background: '#ede9fe', color: '#7c3aed' }}>
+              <BrainCircuit size={11} /> AI Coach
+            </Link>
+          )}
 
           {session.status === 'scheduled' && isPast && !showComplete && (
             <button onClick={() => setShowComplete(true)}

@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Skill, SkillLevel } from '@/lib/types'
-import { Plus, X, ShieldCheck, Check, GraduationCap, BookOpen, ChevronDown, Upload, FileText, Trophy, Briefcase, ImageIcon, Trash2, ExternalLink, Loader2 } from 'lucide-react'
+import { Plus, X, ShieldCheck, Check, GraduationCap, BookOpen, ChevronDown, Upload, FileText, Trophy, Briefcase, ImageIcon, Trash2, ExternalLink, Loader2, Star, CalendarCheck, Clock, Hourglass } from 'lucide-react'
+import { SkillFuture } from '@/lib/types'
 
 /* ─── Skill suggestions by category ─── */
 const SKILL_SUGGESTIONS: { category: string; skills: string[] }[] = [
@@ -43,6 +44,8 @@ interface ProfileFormProps {
   isOnboarding: boolean
   userId: string
   initialCredentials?: Credential[]
+  initialFutures?: SkillFuture[]
+  reputation?: { rating_avg: number; sessions_taught: number } | null
 }
 
 const inputStyle = {
@@ -194,6 +197,116 @@ function SkillSection({
 
       {skills.length >= maxSkills && (
         <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Maximum {maxSkills} skills reached</p>
+      )}
+    </div>
+  )
+}
+
+/* ─── Skill Futures section ─── */
+function SkillFuturesSection({ initialFutures }: { initialFutures: SkillFuture[] }) {
+  const [futures, setFutures] = useState<SkillFuture[]>(initialFutures)
+  const [skillName, setSkillName] = useState('')
+  const [weeks, setWeeks] = useState('8')
+  const [targetLevel, setTargetLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const addFuture = async () => {
+    if (!skillName.trim()) return
+    setSaving(true); setError('')
+    const res = await fetch('/api/futures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_future', skill_name: skillName.trim(), target_level: targetLevel, estimated_weeks: parseInt(weeks) }),
+    })
+    const data = await res.json()
+    if (data.future) { setFutures(prev => [data.future, ...prev]); setSkillName('') }
+    else setError(data.error || 'Failed to add')
+    setSaving(false)
+  }
+
+  const removeFuture = async (id: string) => {
+    setDeleting(id)
+    await fetch(`/api/futures?id=${id}`, { method: 'DELETE' })
+    setFutures(prev => prev.filter(f => f.id !== id))
+    setDeleting(null)
+  }
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+      <div className="flex items-start justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Hourglass size={14} className="text-amber-500" />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Skill Futures</p>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">NEW</span>
+        </div>
+        <span className="text-[11px] px-2 py-0.5 rounded-full border" style={{ borderColor: 'var(--border-2)', color: 'var(--text-3)' }}>
+          {futures.length} skill{futures.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+        Kỹ năng bạn đang học và sẽ sẵn sàng trong vài tuần tới. Người khác có thể đặt cọc để nhận kỹ năng này khi bạn đủ trình.
+      </p>
+
+      {/* Add form */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <input value={skillName} onChange={e => setSkillName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addFuture()}
+          className="flex-1 min-w-[140px] rounded-lg px-3 py-2 text-sm focus:outline-none"
+          style={inputStyle} placeholder="e.g. Python, Piano..." />
+        <select value={targetLevel} onChange={e => setTargetLevel(e.target.value as 'beginner' | 'intermediate' | 'advanced')}
+          className="rounded-lg px-2 py-2 text-xs focus:outline-none flex-shrink-0" style={inputStyle}>
+          <option value="beginner">→ Beginner</option>
+          <option value="intermediate">→ Intermediate</option>
+          <option value="advanced">→ Advanced</option>
+        </select>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <input type="number" value={weeks} onChange={e => setWeeks(e.target.value)} min="1" max="52"
+            className="w-14 rounded-lg px-2 py-2 text-sm text-center focus:outline-none" style={inputStyle} />
+          <span className="text-xs" style={{ color: 'var(--text-3)' }}>weeks</span>
+        </div>
+        <button onClick={addFuture} disabled={saving || !skillName.trim()}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-400 text-white transition-all disabled:opacity-40 flex-shrink-0">
+          {saving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+          Add
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+
+      {/* List */}
+      {futures.length === 0 ? (
+        <p className="text-xs text-center py-4" style={{ color: 'var(--text-3)' }}>Chưa có future skill nào. Thêm kỹ năng bạn đang học!</p>
+      ) : (
+        <div className="space-y-2">
+          {futures.map(f => (
+            <div key={f.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--border-2)' }}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{f.skill_name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                    → {f.target_level}
+                  </span>
+                  {f.ai_verified && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                      <ShieldCheck size={9} /> Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <Clock size={9} style={{ color: 'var(--text-3)' }} />
+                  <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>Ready in ~{f.estimated_weeks} weeks</span>
+                </div>
+              </div>
+              <button onClick={() => removeFuture(f.id)} disabled={deleting === f.id}
+                className="p-1 rounded-md hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
+                style={{ color: 'var(--text-3)' }}>
+                {deleting === f.id ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -364,7 +477,7 @@ function CredentialsSection({ initialCredentials }: { initialCredentials: Creden
   )
 }
 
-export default function ProfileForm({ profile, isOnboarding, userId, initialCredentials = [] }: ProfileFormProps) {
+export default function ProfileForm({ profile, isOnboarding, userId, initialCredentials = [], initialFutures = [], reputation }: ProfileFormProps) {
   const router = useRouter()
   const [step, setStep] = useState(isOnboarding ? 1 : 0)
   const [saving, setSaving] = useState(false)
@@ -506,6 +619,21 @@ export default function ProfileForm({ profile, isOnboarding, userId, initialCred
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>Profile</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>Manage your information and skills</p>
+          {reputation && (
+            <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-1.5">
+                <Star size={13} className="text-amber-400 fill-amber-400" />
+                <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{reputation.rating_avg.toFixed(1)}</span>
+                <span className="text-xs" style={{ color: 'var(--text-3)' }}>avg rating</span>
+              </div>
+              <span style={{ color: 'var(--border-2)' }}>·</span>
+              <div className="flex items-center gap-1.5">
+                <CalendarCheck size={13} style={{ color: 'var(--accent)' }} />
+                <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{reputation.sessions_taught}</span>
+                <span className="text-xs" style={{ color: 'var(--text-3)' }}>session{reputation.sessions_taught !== 1 ? 's' : ''} taught</span>
+              </div>
+            </div>
+          )}
         </div>
         <button onClick={saveProfile} disabled={saving}
           className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all disabled:opacity-40 hover:border-violet-500/40 hover:text-violet-600"
@@ -576,6 +704,9 @@ export default function ProfileForm({ profile, isOnboarding, userId, initialCred
 
         {/* Credentials */}
         <CredentialsSection initialCredentials={initialCredentials} />
+
+        {/* Skill Futures */}
+        <SkillFuturesSection initialFutures={initialFutures} />
       </div>
     </div>
   )

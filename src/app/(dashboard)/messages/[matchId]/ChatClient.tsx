@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { ArrowLeft, Send, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Send, ArrowDown, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { Message, Profile } from '@/lib/types'
 import { useNotifications } from '@/contexts/NotificationContext'
@@ -25,6 +25,7 @@ export default function ChatClient({ matchId, initialMessages, currentUserId, ot
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [newMsgNotif, setNewMsgNotif] = useState<string | null>(null)
+  const [moderationWarning, setModerationWarning] = useState<string | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -147,9 +148,15 @@ export default function ChatClient({ matchId, initialMessages, currentUserId, ot
       })
       const data = await res.json()
 
-      if (data.message) {
+      if (res.status === 422 && data.error === 'MONEY_DETECTED') {
+        // Blocked by moderation — remove optimistic message, restore input, show warning
+        setMessages(prev => prev.filter(m => m.id !== tempId))
+        setInput(content)
+        setModerationWarning(data.message)
+        setTimeout(() => setModerationWarning(null), 6000)
+      } else if (data.message) {
+        setModerationWarning(null)
         setMessages(prev => {
-          // If real message already exists (e.g. from a stale Realtime), just remove temp
           if (prev.some(m => m.id === data.message.id)) {
             return prev.filter(m => m.id !== tempId)
           }
@@ -266,6 +273,15 @@ export default function ChatClient({ matchId, initialMessages, currentUserId, ot
           </div>
         )}
       </div>
+
+      {/* Moderation warning */}
+      {moderationWarning && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs mb-2 flex-shrink-0"
+          style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+          <ShieldAlert size={13} className="flex-shrink-0 mt-0.5" />
+          <span>{moderationWarning}</span>
+        </div>
+      )}
 
       {/* Input */}
       <div className="pt-3 mt-2 border-t flex gap-2 items-end flex-shrink-0"

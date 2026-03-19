@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { chatCompletion, parseJSON, ChatMessage } from '@/lib/ai/client'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 const SYSTEM_PROMPT = `You are a skill assessor evaluating skills through conversation.
 Assess the user's real level through 5-7 adaptive questions.
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 30 requests per user per 10 minutes (covers a full assessment session)
+  if (!checkRateLimit(`assessment:${user.id}`, 30, 10 * 60_000)) {
+    return NextResponse.json({ error: 'Too many requests. Please wait a few minutes.' }, { status: 429 })
+  }
 
   const { skillName, messages, assessmentSessionId } = await req.json()
 

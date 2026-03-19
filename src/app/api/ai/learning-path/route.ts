@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { generateLearningPath } from '@/lib/ai/learning-path'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 5 learning path generations per user per hour
+  if (!checkRateLimit(`learning-path:${user.id}`, 5, 60 * 60_000)) {
+    return NextResponse.json({ error: 'Too many requests. Please wait before generating a new learning path.' }, { status: 429 })
+  }
 
   const { skillName, currentLevel, targetLevel } = await req.json()
 

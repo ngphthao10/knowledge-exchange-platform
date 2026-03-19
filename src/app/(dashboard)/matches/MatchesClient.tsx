@@ -1,19 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Loader2, AlertCircle, Users, Zap } from 'lucide-react'
-import { Match, Profile } from '@/lib/types'
+import { Search, Loader2, AlertCircle, Users, Zap, BookOpen, GraduationCap, Info, Hourglass, ArrowRight, Clock } from 'lucide-react'
+import { Match, Profile, FuturePledge } from '@/lib/types'
 import MatchCard from '@/components/matching/MatchCard'
 
 type MatchWithProfiles = Match & { profile_a?: Profile; profile_b?: Profile }
-type Tab = 'all' | 'pending' | 'accepted' | 'declined'
+type Tab = 'all' | 'pending' | 'accepted' | 'declined' | 'futures'
+type Skill = { name: string; level?: string }
 
 interface MatchesClientProps {
   initialMatches: MatchWithProfiles[]
   currentUserId: string
+  mySkillsTeach: Skill[]
+  mySkillsLearn: Skill[]
+  outgoingPledges: FuturePledge[]
+  incomingPledges: FuturePledge[]
 }
 
-export default function MatchesClient({ initialMatches, currentUserId }: MatchesClientProps) {
+export default function MatchesClient({ initialMatches, currentUserId, mySkillsTeach, mySkillsLearn, outgoingPledges, incomingPledges }: MatchesClientProps) {
   const [matches, setMatches] = useState<MatchWithProfiles[]>(initialMatches)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -31,7 +36,7 @@ export default function MatchesClient({ initialMatches, currentUserId }: Matches
     setLoading(false)
   }
 
-  const handleStatusChange = (matchId: string, status: 'accepted' | 'declined') => {
+  const handleStatusChange = (matchId: string, status: 'accepted' | 'declined' | 'pending') => {
     setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status } : m))
   }
 
@@ -39,11 +44,13 @@ export default function MatchesClient({ initialMatches, currentUserId }: Matches
   const accepted = matches.filter(m => m.status === 'accepted')
   const declined = matches.filter(m => m.status === 'declined')
 
+  const totalPledges = outgoingPledges.length + incomingPledges.length
   const tabs: { key: Tab; label: string; count: number; color?: string }[] = [
     { key: 'all',      label: 'All',       count: matches.length },
     { key: 'pending',  label: 'Pending',   count: pending.length,  color: 'text-violet-600' },
     { key: 'accepted', label: 'Connected', count: accepted.length, color: 'text-emerald-600' },
     { key: 'declined', label: 'Declined',  count: declined.length },
+    { key: 'futures',  label: 'Futures',   count: totalPledges,    color: 'text-amber-600' },
   ]
 
   const filtered = matches.filter(m => {
@@ -87,6 +94,58 @@ export default function MatchesClient({ initialMatches, currentUserId }: Matches
             : <><Search size={13} /> Find matches</>
           }
         </button>
+      </div>
+
+      {/* My skills context */}
+      {(mySkillsTeach.length > 0 || mySkillsLearn.length > 0) && (
+        <div className="rounded-xl border p-4 mb-5 flex flex-col sm:flex-row gap-4"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          {mySkillsTeach.length > 0 && (
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-2">
+                <GraduationCap size={13} style={{ color: '#7c3aed' }} />
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>You teach</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {mySkillsTeach.map((s, i) => (
+                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: '#ede9fe', color: '#7c3aed' }}>
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {mySkillsTeach.length > 0 && mySkillsLearn.length > 0 && (
+            <div className="w-px self-stretch hidden sm:block" style={{ background: 'var(--border)' }} />
+          )}
+          {mySkillsLearn.length > 0 && (
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-2">
+                <BookOpen size={13} style={{ color: 'var(--text-3)' }} />
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>You want to learn</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {mySkillsLearn.map((s, i) => (
+                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* How it works hint */}
+      <div className="flex items-start gap-2 rounded-xl border px-4 py-3 mb-5 text-xs"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text-3)' }}>
+        <Info size={13} className="flex-shrink-0 mt-0.5" />
+        <span>
+          AI finds people whose skills complement yours — they teach what you want to learn, and you teach what they need.
+          Hit <span className="font-semibold" style={{ color: 'var(--text-2)' }}>Find matches</span> to discover new connections.
+        </span>
       </div>
 
       {/* Error */}
@@ -138,7 +197,89 @@ export default function MatchesClient({ initialMatches, currentUserId }: Matches
             ))}
           </div>
 
-          {filtered.length === 0 ? (
+          {activeTab === 'futures' ? (
+            <div className="space-y-5">
+              {/* Outgoing pledges */}
+              {outgoingPledges.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
+                    <ArrowRight size={12} className="text-amber-500" /> Bạn đã pledge
+                  </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {outgoingPledges.map(p => (
+                      <div key={p.id} className="rounded-xl border p-4 flex flex-col gap-2"
+                        style={{ background: 'var(--surface)', borderColor: '#fde68a' }}>
+                        <div className="flex items-center gap-2">
+                          <Hourglass size={13} className="text-amber-500 flex-shrink-0" />
+                          <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                            {(p.future_owner_profile as { full_name?: string } | undefined)?.full_name ?? 'Unknown'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md font-medium" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                            Bạn dạy: {p.pledger_skill}
+                          </span>
+                          <ArrowRight size={10} style={{ color: 'var(--text-3)' }} />
+                          <span className="px-2 py-0.5 rounded-md font-medium" style={{ background: '#fffbeb', color: '#92400e' }}>
+                            Nhận lại: {p.future_skill}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                          <Clock size={10} />
+                          {p.sessions_delivered}/{p.sessions_pledged} sessions · {p.status}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Incoming pledges */}
+              {incomingPledges.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
+                    <Hourglass size={12} className="text-amber-500" /> Người khác pledge kỹ năng của bạn
+                  </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {incomingPledges.map(p => (
+                      <div key={p.id} className="rounded-xl border p-4 flex flex-col gap-2"
+                        style={{ background: 'var(--surface)', borderColor: '#a7f3d0' }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                            {(p.pledger_profile as { full_name?: string } | undefined)?.full_name ?? 'Unknown'}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">đã pledge</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md font-medium" style={{ background: '#f0fdf4', color: '#047857' }}>
+                            Họ dạy: {p.pledger_skill}
+                          </span>
+                          <ArrowRight size={10} style={{ color: 'var(--text-3)' }} />
+                          <span className="px-2 py-0.5 rounded-md font-medium" style={{ background: '#fffbeb', color: '#92400e' }}>
+                            Chờ: {p.future_skill}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                          <Clock size={10} />
+                          {p.sessions_delivered}/{p.sessions_pledged} sessions · {p.status}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {totalPledges === 0 && (
+                <div className="rounded-xl border p-16 text-center" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                  <Hourglass size={28} className="mx-auto mb-3 text-amber-400" />
+                  <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Chưa có Skill Futures</p>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    Thêm kỹ năng đang học trong Profile, hoặc Pledge kỹ năng của người khác trong Discover
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="rounded-xl border p-10 text-center"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <p className="text-xs" style={{ color: 'var(--text-3)' }}>Nothing here</p>

@@ -9,12 +9,14 @@ export default async function OnboardingPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('skills_teach')
     .eq('user_id', user.id)
     .single()
 
   // Already completed onboarding — go to dashboard
-  if (profile?.full_name) redirect('/dashboard')
+  if (profile?.skills_teach?.length) redirect('/dashboard')
 
-  return <OnboardingClient userId={user.id} />
+  const initialFullName: string = (user.user_metadata?.full_name as string) ?? ''
+
+  return <OnboardingClient userId={user.id} initialFullName={initialFullName} />
 }

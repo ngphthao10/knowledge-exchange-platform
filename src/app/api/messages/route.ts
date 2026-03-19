@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { detectMoneyTransaction } from '@/lib/ai/moderation'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +23,15 @@ export async function POST(req: NextRequest) {
   if (match.status !== 'accepted') return NextResponse.json({ error: 'Match not accepted' }, { status: 403 })
   if (match.user_a_id !== user.id && match.user_b_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // AI moderation: block money/payment requests
+  const isMoney = await detectMoneyTransaction(content.trim())
+  if (isMoney) {
+    return NextResponse.json(
+      { error: 'MONEY_DETECTED', message: 'SkillSwap là nền tảng trao đổi kỹ năng miễn phí. Tin nhắn liên quan đến giao dịch tiền bạc không được phép.' },
+      { status: 422 }
+    )
   }
 
   const { data: message, error } = await supabase

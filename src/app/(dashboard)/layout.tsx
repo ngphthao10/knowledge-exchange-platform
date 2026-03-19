@@ -12,12 +12,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('full_name, skills_teach')
     .eq('user_id', user.id)
     .single()
 
-  // New user — hasn't set up profile yet
-  if (!profile?.full_name) redirect('/onboarding')
+  // New user — hasn't completed onboarding yet
+  if (!profile?.skills_teach?.length) redirect('/onboarding')
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase()

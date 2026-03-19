@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import React from 'react'
 import { useNotifications } from '@/contexts/NotificationContext'
 
-type NavItem = { href: string; label: string; icon: React.ElementType; badge?: boolean }
+type NavItem = { href: string; label: string; icon: React.ElementType; badge?: boolean; badgeType?: 'message' | 'match' }
 
 const sections: { label?: string; items: NavItem[] }[] = [
   {
@@ -19,8 +19,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
   {
     label: 'Social',
     items: [
-      { href: '/matches', label: 'Matches', icon: Link2 },
-      { href: '/messages', label: 'Messages', icon: MessageSquare, badge: true },
+      { href: '/matches', label: 'Matches', icon: Link2, badge: true, badgeType: 'match' },
+      { href: '/messages', label: 'Messages', icon: MessageSquare, badge: true, badgeType: 'message' },
     ],
   },
   {
@@ -41,8 +41,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
 const mobileItems: NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/discover', label: 'Discover', icon: Compass },
-  { href: '/matches', label: 'Matches', icon: Link2 },
-  { href: '/messages', label: 'Messages', icon: MessageSquare, badge: true },
+  { href: '/matches', label: 'Matches', icon: Link2, badge: true, badgeType: 'match' },
+  { href: '/messages', label: 'Messages', icon: MessageSquare, badge: true, badgeType: 'message' },
   { href: '/profile', label: 'Profile', icon: User },
 ]
 
@@ -53,11 +53,12 @@ function isActive(pathname: string, href: string) {
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const { unreadCount, markAllRead } = useNotifications()
+  const { unreadCount, pendingMatchCount, markAllRead, markMatchesRead } = useNotifications()
 
   useEffect(() => {
     if (pathname.startsWith('/messages')) markAllRead()
-  }, [pathname, markAllRead])
+    if (pathname.startsWith('/matches')) markMatchesRead()
+  }, [pathname, markAllRead, markMatchesRead])
 
   return (
     <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
@@ -70,9 +71,10 @@ export function SidebarNav() {
             </p>
           )}
           <div className="space-y-0.5">
-            {section.items.map(({ href, label, icon: Icon, badge }) => {
+            {section.items.map(({ href, label, icon: Icon, badge, badgeType }) => {
               const active = isActive(pathname, href)
-              const showBadge = badge && unreadCount > 0
+              const count = badgeType === 'match' ? pendingMatchCount : unreadCount
+              const showBadge = badge && count > 0
               return (
                 <Link key={href} href={href}
                   className={`nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium relative ${active ? 'nav-active' : ''}`}
@@ -84,14 +86,14 @@ export function SidebarNav() {
                     <Icon size={15} style={{ color: active ? 'var(--accent)' : 'inherit' }} />
                     {showBadge && (
                       <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {count > 9 ? '9+' : count}
                       </span>
                     )}
                   </div>
                   <span className="flex-1">{label}</span>
                   {showBadge && (
                     <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {unreadCount > 99 ? '99+' : unreadCount}
+                      {count > 99 ? '99+' : count}
                     </span>
                   )}
                 </Link>
@@ -106,19 +108,21 @@ export function SidebarNav() {
 
 export function MobileNav() {
   const pathname = usePathname()
-  const { unreadCount, markAllRead } = useNotifications()
+  const { unreadCount, pendingMatchCount, markAllRead, markMatchesRead } = useNotifications()
 
   useEffect(() => {
     if (pathname.startsWith('/messages')) markAllRead()
-  }, [pathname, markAllRead])
+    if (pathname.startsWith('/matches')) markMatchesRead()
+  }, [pathname, markAllRead, markMatchesRead])
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t z-50"
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
       <div className="flex">
-        {mobileItems.map(({ href, label, icon: Icon, badge }) => {
+        {mobileItems.map(({ href, label, icon: Icon, badge, badgeType }) => {
           const active = isActive(pathname, href)
-          const showBadge = badge && unreadCount > 0
+          const count = badgeType === 'match' ? pendingMatchCount : unreadCount
+          const showBadge = badge && count > 0
           return (
             <Link key={href} href={href}
               className="flex-1 flex flex-col items-center gap-1 py-3 transition-colors relative"
@@ -130,7 +134,7 @@ export function MobileNav() {
                 <Icon size={19} strokeWidth={active ? 2.2 : 1.8} />
                 {showBadge && (
                   <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {count > 9 ? '9+' : count}
                   </span>
                 )}
               </div>
