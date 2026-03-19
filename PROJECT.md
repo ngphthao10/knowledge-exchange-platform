@@ -86,7 +86,9 @@ AI đóng vai trò trung tâm: phân tích hồ sơ người dùng, tính toán 
 
 ## 5. Tính năng AI (build riêng)
 
-> Các tính năng này dùng AI (GPT-4o-mini) và có logic phức tạp hơn — tách riêng để dễ quản lý và iterate độc lập.
+> Các tính năng này dùng AI và có logic phức tạp hơn — tách riêng để dễ quản lý và iterate độc lập.
+> **AI Provider hiện tại:** OpenAI-compatible API (gpt-4o-mini)
+> **AI Provider kế hoạch:** Amazon Bedrock Agent — xem mục 5.5 và mục 12
 
 ### AI-1: Match Explanation
 - Tính điểm tương thích dựa trên **skill overlap hai chiều**: A dạy được B học, B dạy được A học
@@ -111,6 +113,27 @@ AI đóng vai trò trung tâm: phân tích hồ sơ người dùng, tính toán 
 - API: `/api/ai/learning-path`
 - Rate limit: 5 lần/giờ
 
+### AI-4: Chemistry Score
+- AI phân tích bio + learning style + kỹ năng của 2 người → điểm tương thích cảm xúc (0–1)
+- Hiển thị trên match card dưới dạng badge ⚡ màu: tím ≥75%, vàng 45–75%, đỏ <45%
+- AI sinh giải thích ngắn tại sao chemistry cao/thấp
+- Tính toán song song với skill score khi tạo match mới
+- API: `/api/ai/match` (tích hợp trong cùng endpoint)
+
+### AI-5: Skill Futures
+- Người dùng khai báo kỹ năng **đang học** (chưa có) trong Profile
+- Người khác có thể **Pledge**: cam kết dạy kỹ năng đó khi mình học xong
+- Hệ thống theo dõi số sessions đã deliver / tổng sessions cam kết
+- Hiển thị trong Discover (badge Hourglass trên card), Matches (tab Futures)
+- API: `/api/futures` (GET/POST/DELETE)
+
+### AI-6: Ambient Session Coach
+- Trong buổi học trực tiếp, AI lắng nghe qua Web Speech API và gợi ý real-time
+- Cứ 15 giây gửi đoạn transcript lên AI → nhận coaching hint cho cả teacher lẫn learner
+- Khi kết thúc: AI tóm tắt toàn bộ buổi học (3–5 bullet points), tự động lưu vào `sessions.notes`
+- Giao diện: `/sessions/[sessionId]/live` — có nút Start/Pause mic, hiện hint cards, End & Summarize
+- API: `/api/ai/session-coach`
+
 ---
 
 ## 6. Kiến trúc hệ thống
@@ -124,31 +147,36 @@ Next.js (Vercel Edge)
     ├── Server Components (dashboard, profile, sessions...)
     │       └── fetch data từ Supabase trực tiếp
     ├── API Routes (serverless functions)
-    │       ├── /api/ai/match      → AI matching engine
-    │       ├── /api/ai/assessment → Conversational AI assessor
+    │       ├── /api/ai/match         → AI matching + Chemistry Score
+    │       ├── /api/ai/assessment    → Conversational AI assessor
     │       ├── /api/ai/learning-path → AI path generator
-    │       ├── /api/messages      → Send message
-    │       ├── /api/sessions      → CRUD sessions
-    │       └── /api/credentials   → Upload/delete files
+    │       ├── /api/ai/session-coach → Ambient coaching hints + summary
+    │       ├── /api/futures          → Skill Futures CRUD
+    │       ├── /api/messages         → Send message
+    │       ├── /api/sessions         → CRUD sessions
+    │       └── /api/credentials      → Upload/delete files
     └── Middleware (auth session refresh on every request)
 
 Supabase
     ├── Auth (email verification, Google OAuth, session cookies)
     ├── PostgreSQL
-    │       ├── profiles       (user info + skills + embeddings)
-    │       ├── matches        (pairs + score + AI reason)
-    │       ├── sessions       (scheduled lessons)
-    │       ├── messages       (chat history)
-    │       ├── learning_paths (AI-generated milestones)
+    │       ├── profiles          (user info + skills + learning_style)
+    │       ├── matches           (pairs + score + chemistry_score + AI reason)
+    │       ├── sessions          (scheduled lessons + notes)
+    │       ├── messages          (chat history)
+    │       ├── learning_paths    (AI-generated milestones)
     │       ├── assessment_sessions (conversation history)
-    │       └── credentials    (file metadata)
+    │       ├── skill_futures     (kỹ năng đang học)
+    │       ├── future_pledges    (cam kết dạy skill)
+    │       └── credentials       (file metadata)
     ├── Realtime (WebSocket pub/sub cho messages)
     └── Storage (credential files)
 
-OpenAI API (gpt-4o-mini)
-    ├── Match explanation generation
+OpenAI-compatible API (gpt-4o-mini) — hiện tại
+    ├── Match explanation + Chemistry Score
     ├── Skill assessment conversation
-    └── Learning path generation
+    ├── Learning path generation
+    └── Session coaching hints + summary
 ```
 
 ---
@@ -157,12 +185,14 @@ OpenAI API (gpt-4o-mini)
 
 | Table | Mô tả |
 |---|---|
-| `profiles` | Hồ sơ người dùng: tên, bio, skills_teach[], skills_learn[], availability[], skill embeddings |
-| `matches` | Cặp kết nối: user_a, user_b, match_score (0–1), match_reason (AI), status |
-| `sessions` | Buổi học: teacher, learner, skill, thời gian, meet_link, rating, notes |
+| `profiles` | Hồ sơ người dùng: tên, bio, skills_teach[], skills_learn[], availability[], learning_style (jsonb) |
+| `matches` | Cặp kết nối: user_a, user_b, match_score (0–1), chemistry_score (0–1), match_reason, chemistry_explanation, status |
+| `sessions` | Buổi học: teacher, learner, skill, thời gian, meet_link, rating, notes (AI summary) |
 | `messages` | Tin nhắn: match_id, sender_id, content, created_at |
 | `learning_paths` | Lộ trình: user, skill, current_level, target_level, milestones[] |
 | `assessment_sessions` | Lịch sử chat assessment, final_score, final_level |
+| `skill_futures` | Kỹ năng đang học: user_id, skill_name, current_level, target_level, estimated_weeks |
+| `future_pledges` | Cam kết dạy: pledger_id, future_owner_id, pledger_skill, future_skill, sessions_pledged, sessions_delivered, status |
 | `credentials` | File xác minh: type, title, file_url, file_size |
 
 ---
@@ -317,6 +347,7 @@ Chiến lược giai đoạn đầu: tập trung vào một nhóm cộng đồng
 
 | Priority | Feature | Ghi chú |
 |---|---|---|
+| Cao | **Migrate AI sang Amazon Bedrock Agent** | Xem mục 12 — kế hoạch chi tiết |
 | Cao | Fix Supabase Realtime WebSocket lỗi trên production | Đang ảnh hưởng chat realtime |
 | Cao | Email notifications (new match, message) | — |
 | Cao | Upstash Redis cho rate limiting production | Thay in-memory hiện tại |
@@ -326,3 +357,87 @@ Chiến lược giai đoạn đầu: tập trung vào một nhóm cộng đồng
 | Thấp | Mobile app (React Native hoặc PWA) | — |
 | Thấp | Skill marketplace — offer/request cụ thể hơn | — |
 | Thấp | Tích hợp video call (Daily.co, Whereby) | — |
+
+---
+
+## 12. Kế hoạch nâng cấp: Amazon Bedrock Agent
+
+> **Mục tiêu:** Thay thế các AI endpoint đơn lẻ (stateless, single-turn) bằng một **Bedrock Agent** có khả năng multi-step reasoning, long-term memory, và proactive action — biến AI từ "công cụ" thành "trợ lý học tập thực sự".
+
+### 12.1 Tại sao cần Agent?
+
+Hiện tại mỗi AI call là **stateless và độc lập** — session coach không biết buổi học trước học gì, matching không nhớ user đã reject ai, learning path không adjust theo tiến độ thực tế. Agent giải quyết điều này bằng cách có **memory xuyên suốt** và **tự quyết định** cần làm gì tiếp theo.
+
+### 12.2 AWS Services sử dụng
+
+| Service | Vai trò |
+|---|---|
+| **Amazon Bedrock** | LLM provider — Claude 3.5 Sonnet (thay gpt-4o-mini) |
+| **Amazon Bedrock Agents** | Orchestration engine — multi-step reasoning, tool calling |
+| **Amazon Bedrock Knowledge Bases** | RAG — lưu tài liệu học, skill content, session transcripts |
+| **Amazon DynamoDB** | Agent memory store — lịch sử học, preference, context |
+| **AWS Lambda** | Action Groups — các tool mà agent có thể gọi |
+| **Amazon EventBridge** | Scheduler — trigger proactive agent actions |
+| **Amazon S3** | Lưu transcript, tài liệu cho Knowledge Base |
+
+### 12.3 Kiến trúc sau khi migrate
+
+```
+User Browser
+    │
+    ▼
+Next.js (Vercel) — giữ nguyên frontend
+    │
+    ▼
+AWS API Gateway
+    │
+    ▼
+Amazon Bedrock Agent  ←──── DynamoDB (long-term memory)
+    │                 ←──── Knowledge Base (RAG: skill docs, past sessions)
+    │
+    ├── Action Group: SkillSwap Tools (Lambda)
+    │       ├── tool: find_matches(user_id)         → query Supabase
+    │       ├── tool: get_session_history(user_id)  → query Supabase
+    │       ├── tool: update_learning_path(...)     → write Supabase
+    │       ├── tool: search_resources(skill, level)→ web search / KB
+    │       └── tool: send_notification(user_id)    → email/push
+    │
+    └── EventBridge Scheduler
+            ├── Trước buổi học 1h: agent chuẩn bị nội dung, gửi nhắc nhở
+            ├── Sau buổi học: agent tóm tắt, cập nhật learning path
+            └── Hàng tuần: agent review tiến độ, gợi ý session mới
+
+Supabase — giữ nguyên (database + auth + realtime)
+Amazon S3 — lưu transcripts cho Knowledge Base
+DynamoDB — agent session state + long-term memory
+```
+
+### 12.4 Capabilities mới sau khi có Agent
+
+**Memory xuyên sessions:**
+- Agent nhớ từng buổi học: học gì, khó chỗ nào, tiến bộ ra sao
+- Coaching hint cá nhân hóa dựa trên lịch sử — không phải generic advice
+
+**Proactive learning coach:**
+- 1 giờ trước buổi học: agent tự tìm tài liệu phù hợp, chuẩn bị câu hỏi gợi ý
+- Sau buổi học: agent update learning path, gợi ý buổi tiếp theo học gì
+- Hàng tuần: agent nhận xét tiến độ tổng thể, điều chỉnh roadmap
+
+**Multi-step matching:**
+- Không chỉ match 1 lần — agent theo dõi kết quả match, học từ reject/accept để cải thiện gợi ý
+- Tự động re-match khi có user mới phù hợp
+
+**Skill Futures thông minh:**
+- Agent theo dõi learning progress, tự verify khi user đạt đủ trình độ pledge
+- Gợi ý pledge partner dựa trên progress track record
+
+### 12.5 Các bước triển khai (chưa implement)
+
+1. **Setup Bedrock:** enable Claude 3.5 Sonnet trên AWS, tạo IAM roles
+2. **Tạo Knowledge Base:** sync session transcripts (S3) + skill content vào Bedrock KB
+3. **Tạo Action Groups:** viết Lambda functions cho từng tool (find_matches, get_history...)
+4. **Tạo Agent:** define system prompt, attach KB + Action Groups
+5. **Tạo DynamoDB tables:** `agent_sessions`, `user_memory`, `learning_context`
+6. **Replace API routes:** `/api/ai/*` → gọi Bedrock Agent thay vì OpenAI direct
+7. **Setup EventBridge:** schedule proactive agent tasks
+8. **Migrate hosting:** AWS Lambda + API Gateway thay Vercel cho AI layer (hoặc giữ Vercel gọi sang AWS)
